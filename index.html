@@ -1,0 +1,1659 @@
+<!doctype html>
+<html lang="en">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Grid Layout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap');
+        
+        body {
+            box-sizing: border-box;
+        }
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        .grid-cell {
+            position: relative;
+            width: 100%;
+        }
+        .grid-cell::before {
+            content: '';
+            display: block;
+            padding-top: 100%;
+        }
+        .grid-cell > * {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .left-column-cell {
+            width: 100%;
+            height: 100%;
+        }
+        .left-column-cell::before {
+            display: none;
+        }
+        #grid1 {
+            transition: transform 0.4s ease-out;
+            min-height: 0;
+            height: 100%;
+        }
+        
+        .grid-wrapper {
+            overflow: hidden;
+            position: relative;
+            width: 100%;
+            max-height: 100%;
+        }
+        #grid1 > div {
+            aspect-ratio: 1;
+            min-height: 0;
+            width: 100%;
+        }
+        #staticGrid {
+            width: 100%;
+            background: #1a0a0a;
+            border-radius: 1.2vh;
+            overflow: hidden;
+        }
+        #staticGrid > div {
+            aspect-ratio: 1;
+            min-height: 0;
+            width: 100%;
+        }
+        .grid-container {
+            container-type: size;
+        }
+        .header-row {
+            aspect-ratio: auto !important;
+        }
+        .dice {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        .roll-button-wrapper:hover .roll-tooltip {
+            opacity: 1;
+        }
+        body.dragging {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        .hover-image-trigger:hover .hover-image-popup {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .skyfall-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            letter-spacing: 0.3rem;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #00d4ff 0%, #0080ff 50%, #0040ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0, 128, 255, 0.5);
+            filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.6));
+        }
+        .skill-tooltip {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 0.3vh solid #9333ea;
+            border-radius: 0.8vh;
+            padding: 1.2vh 1.6vh;
+            font-size: 1.3vh;
+            font-weight: 600;
+            color: #1f2937;
+            box-shadow: 0 0.4vh 1.2vh rgba(0, 0, 0, 0.3);
+            z-index: 5000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+            bottom: calc(100% + 0.8vh);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .skill-hover-wrapper {
+            position: relative;
+        }
+        .skill-hover-wrapper:hover .skill-tooltip {
+            opacity: 1;
+        }
+    </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="p-4" style="background-image: url('background.png'); background-size: cover; background-position: center; background-repeat: no-repeat; background-attachment: fixed;"><!-- Dice in Top Left Corner -->
+  <div class="dice-container flex gap-2" style="position: absolute; left: 20px; top: 20px; z-index: 2000;">
+   <div class="flex flex-col gap-2">
+    <div class="flex items-center gap-2">
+     <div class="relative roll-button-wrapper"><button id="rollDiceBtn" class="bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg shadow-md transition-colors" style="padding: 1vh 1vw; font-size: clamp(0.7rem, 1.5vh, 1rem);"> 🎲 Roll </button>
+      <div class="roll-tooltip absolute top-full left-0 mt-2 text-sm font-medium text-gray-800 px-3 py-2 rounded-lg shadow-md whitespace-nowrap opacity-0 pointer-events-none transition-opacity duration-200" style="background-color: rgba(255, 255, 255, 0.95); z-index: 3000; font-size: clamp(0.6rem, 1.2vh, 0.9rem);">
+       Click a dice to bump the value, right click to reroll it.
+      </div>
+     </div><button id="resetDiceBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors" style="padding: 1vh 1vw; font-size: clamp(0.7rem, 1.5vh, 1rem);"> 🔄 Set all dice to 1 </button>
+    </div>
+    <div class="flex items-center gap-2">
+     <div id="dice1" class="dice bg-white border-4 border-gray-800 rounded-xl flex items-center justify-center font-bold shadow-lg cursor-pointer" style="width: clamp(40px, 6vh, 80px); height: clamp(40px, 6vh, 80px); font-size: clamp(1.2rem, 3vh, 2.5rem);">
+      1
+     </div>
+     <div id="dice2" class="dice bg-white border-4 border-gray-800 rounded-xl flex items-center justify-center font-bold shadow-lg cursor-pointer" style="width: clamp(40px, 6vh, 80px); height: clamp(40px, 6vh, 80px); font-size: clamp(1.2rem, 3vh, 2.5rem);">
+      1
+     </div>
+     <div id="dice3" class="dice bg-white border-4 border-gray-800 rounded-xl flex items-center justify-center font-bold shadow-lg cursor-pointer" style="width: clamp(40px, 6vh, 80px); height: clamp(40px, 6vh, 80px); font-size: clamp(1.2rem, 3vh, 2.5rem);">
+      1
+     </div>
+    </div>
+   </div>
+  </div><!-- Rules Link and Quick Reference in Top Right Corner -->
+  <div style="position: absolute; right: 20px; top: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px;"><a href="https://boardgamegeek.com/boardgame/411289/sky-team" target="_blank" rel="noopener noreferrer" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-colors inline-block" style="padding: 1vh 1vw; font-size: clamp(0.7rem, 1.5vh, 1rem); text-decoration: none;"> 📖 Rules (BGG) </a>
+   <div class="relative hover-image-trigger"><button class="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-md transition-colors w-full" style="padding: 1vh 1vw; font-size: clamp(0.7rem, 1.5vh, 1rem);"> 📋 Quick Reference </button>
+    <div class="hover-image-popup absolute right-0 top-full mt-2 opacity-0 transition-opacity duration-200 pointer-events-none" style="z-index: 3000;"><img src="quick-reference.png" alt="Quick Reference" class="rounded-lg shadow-2xl border-4 border-purple-600" style="width: 600px; max-width: 90vw;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'bg-white rounded-lg shadow-2xl border-4 border-purple-600 p-8 text-center font-bold text-gray-700\' style=\'width: 600px; max-width: 90vw;\'>Quick Reference Image<br>(quick-reference.png)</div>';">
+    </div>
+   </div>
+  </div><!-- Quick Guide Popup -->
+  <div id="quickGuidePopup" class="fixed inset-0 flex items-center justify-center z-[9999]" style="background-color: rgba(0, 0, 0, 0.7);">
+   <div class="bg-white rounded-xl shadow-2xl p-8 max-w-2xl mx-4" style="max-height: 85vh; overflow-y: auto;">
+    <h2 class="text-3xl font-bold mb-4 text-indigo-700">Quick Guide - SKYFALL</h2>
+    <div class="space-y-3 text-gray-700">
+     <p><strong>🎲 Dice Controls:</strong></p>
+     <ul class="list-disc ml-6 space-y-1">
+      <li>Left-click a die to increment its value (1-6)</li>
+      <li>Right-click a die to reroll it</li>
+      <li>Drag dice anywhere on the screen</li>
+      <li>"Roll" button rolls all three dice</li>
+      <li>"Set all dice to 1" resets all dice</li>
+     </ul>
+     <p><strong>🎮 Grid Interactions:</strong></p>
+     <ul class="list-disc ml-6 space-y-1">
+      <li>Cells in the grid can be clicked to toggle their state</li>
+      <li>If something can be obtained or upgraded, it can be clicked to toggle through its states.</li>
+     </ul>
+     <p><strong>⬆️⬇️ Navigation:</strong></p>
+     <ul class="list-disc ml-6 space-y-1">
+      <li>"Scroll Down" to advance the level down after you resolve the three dice on your turn.</li>
+      <li>"Scroll Up" to move back up - The time machine will allow you to do this one time.</li>
+      <li>"Regenerate Grid" creates a new random level</li>
+     </ul>
+    </div><button id="closeGuideBtn" class="mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-colors w-full"> Got it! Let's Play </button>
+   </div>
+  </div><!-- Regenerate Button in Bottom Right Corner -->
+  <div style="position: absolute; right: 20px; bottom: 20px; z-index: 2000;"><button id="regenerateBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-md transition-colors" style="padding: 1vh 1vw; font-size: clamp(0.7rem, 1.5vh, 1rem);"> Regenerate Grid </button>
+  </div><!-- Main wrapper with flex centering -->
+  <div class="flex flex-col items-center justify-start" style="width: 100%; height: 100%; padding: 20px 20px 100px 20px; box-sizing: border-box; gap: 10px;"><!-- SKYFALL Title -->
+   <div class="text-center" style="flex-shrink: 0;">
+    <h1 class="skyfall-title" style="font-size: clamp(2rem, 5vw, 4rem); margin: 0;">SKYFALL</h1>
+   </div><!-- 16:9 Aspect Ratio Container with RED BORDER -->
+   <div style="width: 100%; flex: 1; min-height: 0; position: relative; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+    <div style="position: relative; height: 95%; aspect-ratio: 16/9;">
+     <div class="flex justify-center items-stretch" style="width: 100%; height: 100%; gap: 0.8%; padding: 0.8%; overflow: hidden; background: transparent; border: none; border-radius: 1.2vh;"><!-- New Image Column (96-101) - Now on LEFT -->
+      <div class="new-left-column flex flex-col items-center" style="width: 14%; flex-shrink: 0; gap: 1%; max-width: 14%;">
+       <div class="text-center font-bold text-white" style="font-size: 3vh; flex: 0 0 auto; margin-bottom: 0.5vh;">
+        Move
+       </div>
+       <div class="w-full bg-gradient-to-br from-green-200 to-blue-200 rounded-lg overflow-hidden shadow-lg" style="flex: 3; border: 0.4vh solid #d1d5db;"><img src="image96.png" alt="Image 96" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-rose-400 to-pink-500\'>96</div>';">
+       </div>
+       <div class="w-full bg-gradient-to-br from-green-200 to-blue-200 rounded-lg overflow-hidden shadow-lg" style="flex: 1; border: 0.4vh solid #d1d5db;"><img src="image97.png" alt="Image 97" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-amber-400 to-orange-500\'>97</div>';">
+       </div>
+       <div class="w-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="flex: 1; border: 0.4vh solid #d1d5db;" data-image="98"><img src="image98.png" alt="Image 98" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-lime-400 to-green-500\'>98</div>';">
+       </div>
+       <div class="w-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="flex: 1; border: 0.4vh solid #d1d5db;" data-image="99"><img src="image99.png" alt="Image 99" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-sky-400 to-blue-500\'>99</div>';">
+       </div>
+       <div class="w-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="flex: 1; border: 0.4vh solid #d1d5db;" data-image="100"><img src="image100.png" alt="Image 100" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-violet-400 to-purple-500\'>100</div>';">
+       </div>
+       <div class="w-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="flex: 1; border: 0.4vh solid #d1d5db;" data-image="101"><img src="image101.png" alt="Image 101" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-fuchsia-400 to-pink-500\'>101</div>';">
+       </div>
+      </div><!-- Grid Section -->
+      <div class="grid-container flex flex-col items-center" style="width: 39%; flex-shrink: 1; height: 100%; gap: 0;">
+       <div id="staticGrid" class="grid" style="display: grid; grid-template-columns: 0.667fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr; width: 100%; height: 28%; gap: 0.05vh;"><!-- Static grid will be populated by JavaScript -->
+       </div>
+       <div class="grid-wrapper" style="width: 100%; height: 56%; display: flex; flex-direction: column; overflow: hidden; background-image: url('grid-background.png'); background-size: cover; background-position: center; min-height: 0;">
+        <div id="grid1" class="grid" style="display: grid; grid-template-columns: 0.667fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr; height: 100%; width: 100%; gap: 0.05vh;"><!-- Grid will be populated by JavaScript -->
+        </div>
+       </div><!-- Gap after scrolling grid -->
+       <div style="height: 0.5%;"></div><!-- Bottom Image Row (8 square images) -->
+       <div class="bottom-image-row grid" style="display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; height: 8%; gap: 0.1vh;">
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="95"><img src="image95.png" alt="Image 95" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-400 to-purple-400\'>95</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="95"><img src="image95.png" alt="Image 95" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-400 to-purple-400\'>95</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+        <div class="bg-red-200 rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square" style="border: 0.2vh solid #d1d5db;" data-image="94"><img src="image94.png" alt="Image 94" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-orange-400\'>94</div>';">
+        </div>
+       </div><!-- Gap between bottom row and scroll buttons -->
+       <div style="height: 1%;"></div><!-- Scroll Buttons -->
+       <div class="flex gap-2 justify-center" style="width: 100%; height: 7%;"><button id="scrollDownBtn" class="bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg shadow-lg transition-colors" style="padding: 0.5vh 1.5vw; font-size: clamp(0.7rem, 1.3vh, 1rem);"> ⬇️ Scroll Down </button> <button id="scrollUpBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-lg transition-colors" style="padding: 0.5vh 1.5vw; font-size: clamp(0.7rem, 1.3vh, 1rem);"> ⬆️ Scroll Up </button>
+       </div>
+      </div><!-- Right side container for Attack section with grid 74-89 -->
+      <div class="flex flex-col items-center justify-start min-h-0" style="width: 36%; flex-shrink: 1; height: 100%; gap: 0.5%;"><!-- Container for images 74-89 in grid layout -->
+       <div class="flex flex-col items-center justify-start" style="width: 100%; flex: 1; min-height: 0; gap: 0.5%;">
+        <div class="text-center font-bold text-white" style="font-size: 3vh; flex: 0 0 auto;">
+         Attack
+        </div>
+        <div class="grid" style="display: grid; grid-template-columns: 1fr 2fr 2fr; grid-template-rows: repeat(6, minmax(0, 1fr)); width: 100%; height: 100%; min-height: 0; gap: 0.1vh;"><!-- Row 1: 74, 80, 84 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="74" data-toggle-group="74-128"><img src="image74.png" alt="Image 74" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-pink-400 to-purple-500\'>74</div>';">
+         </div>
+         <div class="w-full h-full bg-gradient-to-br from-purple-200 to-blue-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="80"><img src="image80.png" alt="Image 80" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-400 to-pink-500\'>80</div>';">
+         </div>
+         <div class="w-full h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="84"><img src="image84.png" alt="Image 84" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-rose-400 to-red-500\'>84</div>';">
+         </div><!-- Row 2: 75, 81, 85 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="75" data-toggle-group="75-129"><img src="image75.png" alt="Image 75" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-400 to-blue-500\'>75</div>';">
+         </div>
+         <div class="h-full bg-gradient-to-br from-purple-200 to-blue-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="81"><img src="image81.png" alt="Image 81" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-400 to-indigo-500\'>81</div>';">
+         </div>
+         <div class="h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="85"><img src="image85.png" alt="Image 85" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-amber-400 to-orange-500\'>85</div>';">
+         </div><!-- Row 3: 76, 82, 86 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="76" data-toggle-group="76-130"><img src="image76.png" alt="Image 76" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-orange-400 to-red-500\'>76</div>';">
+         </div>
+         <div class="h-full bg-gradient-to-br from-purple-200 to-blue-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="82"><img src="image82.png" alt="Image 82" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-400 to-teal-500\'>82</div>';">
+         </div>
+         <div class="h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="86"><img src="image86.png" alt="Image 86" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-lime-400 to-green-500\'>86</div>';">
+         </div><!-- Row 4: 77, 83 (spans 3 rows), 87 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="77" data-toggle-group="77-131"><img src="image77.png" alt="Image 77" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-yellow-400 to-orange-500\'>77</div>';">
+         </div>
+         <div class="h-full bg-gradient-to-br from-purple-200 to-blue-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="grid-row: span 3; border: 0.4vh solid #d1d5db;" data-image="83"><img src="image83.png" alt="Image 83" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-400 to-cyan-500\'>83</div>';">
+         </div>
+         <div class="skill-hover-wrapper h-full">
+          <div class="h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="87"><img src="image87.png" alt="Image 87" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-sky-400 to-blue-500\'>87</div>';">
+          </div>
+          <div class="skill-tooltip">
+           Requires a 4
+          </div>
+         </div><!-- Row 5: 78, (83 continues), 88 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="78" data-toggle-group="78-132"><img src="image78.png" alt="Image 78" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-indigo-400 to-purple-500\'>78</div>';">
+         </div>
+         <div class="skill-hover-wrapper h-full">
+          <div class="h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="88"><img src="image88.png" alt="Image 88" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-violet-400 to-purple-500\'>88</div>';">
+          </div>
+          <div class="skill-tooltip">
+           Requires two 5s
+          </div>
+         </div><!-- Row 6: 79, (83 continues), 89 -->
+         <div class="w-full h-full bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="79" data-toggle-group="79-133"><img src="image79.png" alt="Image 79" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-teal-400 to-cyan-500\'>79</div>';">
+         </div>
+         <div class="skill-hover-wrapper h-full">
+          <div class="h-full bg-gradient-to-br from-pink-200 to-yellow-200 rounded-lg overflow-hidden shadow-lg cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all" style="border: 0.4vh solid #d1d5db;" data-image="89" data-toggle-group="89-111-122"><img src="image89.png" alt="Image 89" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-fuchsia-400 to-pink-500\'>89</div>';">
+          </div>
+          <div class="skill-tooltip">
+           Requires a 6
+          </div>
+         </div>
+        </div>
+       </div><!-- End of grid container --> <!-- Top Image Grid (3 rows x 9 columns) - Images 90-93 -->
+       <div class="top-image-grid" style="display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(3, 1fr); width: 100%; flex: 0 0 20%; padding: 0.5%; gap: 0.1vh;"><!-- Row 1: 3 of image 90, then 5 of image 91, then empty -->
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="91"><img src="image91.png" alt="Image 91" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-cyan-500\'>91</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 5 orange skills to upgrade the Attack (4-6)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="91"><img src="image91.png" alt="Image 91" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-cyan-500\'>91</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 5 orange skills to upgrade the Attack (4-6)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="91"><img src="image91.png" alt="Image 91" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-cyan-500\'>91</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 5 orange skills to upgrade the Attack (4-6)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="91"><img src="image91.png" alt="Image 91" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-cyan-500\'>91</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 5 orange skills to upgrade the Attack (4-6)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="91"><img src="image91.png" alt="Image 91" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-blue-500 to-cyan-500\'>91</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 5 orange skills to upgrade the Attack (4-6)
+         </div>
+        </div>
+        <div class="rounded overflow-hidden aspect-square" style="background-color: rgba(255, 255, 255, 0.5);"></div><!-- Row 2: 3 of image 90, then 6 of image 92 -->
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="114" data-toggle-group="92-114-123"><img src="image114.png" alt="Image 114" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>114</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="92" data-toggle-group="92-114-123"><img src="image92.png" alt="Image 92" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>92</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="92" data-toggle-group="92-114-123"><img src="image92.png" alt="Image 92" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>92</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="92" data-toggle-group="92-114-123"><img src="image92.png" alt="Image 92" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>92</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="92" data-toggle-group="92-114-123"><img src="image92.png" alt="Image 92" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>92</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="92" data-toggle-group="92-114-123"><img src="image92.png" alt="Image 92" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-green-500 to-teal-500\'>92</div>';">
+        </div><!-- Row 3: 3 of image 90, then 6 of image 93 -->
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="skill-hover-wrapper aspect-square">
+         <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="90"><img src="image90.png" alt="Image 90" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-red-500 to-orange-500\'>90</div>';">
+         </div>
+         <div class="skill-tooltip">
+          Collect 3 blade skills to upgrade a Blade Attack (1, 2, or 3)
+         </div>
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="115" data-toggle-group="93-115-124"><img src="image115.png" alt="Image 115" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>115</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="93" data-toggle-group="93-115-124"><img src="image93.png" alt="Image 93" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>93</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="93" data-toggle-group="93-115-124"><img src="image93.png" alt="Image 93" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>93</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="93" data-toggle-group="93-115-124"><img src="image93.png" alt="Image 93" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>93</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="93" data-toggle-group="93-115-124"><img src="image93.png" alt="Image 93" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>93</div>';">
+        </div>
+        <div class="rounded overflow-hidden shadow-sm cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all aspect-square h-full" style="background-color: rgba(255, 255, 255, 0.5); border: 0.2vh solid #d1d5db;" data-image="93" data-toggle-group="93-115-124"><img src="image93.png" alt="Image 93" class="w-full h-full object-contain" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center text-white font-bold bg-gradient-to-br from-purple-500 to-pink-500\'>93</div>';">
+        </div>
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+        // Image toggle function
+        function setupImageToggle(element) {
+            const imageNum = parseInt(element.getAttribute('data-image'));
+            const toggleGroup = element.getAttribute('data-toggle-group');
+            
+            element.addEventListener('click', function() {
+                const currentImageNum = parseInt(element.getAttribute('data-image'));
+                let newImageNum;
+                
+                // Special toggle groups for 89, 92, 93 (cycle through 3 images)
+                if (toggleGroup === '89-111-122') {
+                    if (currentImageNum === 89) newImageNum = 111;
+                    else if (currentImageNum === 111) newImageNum = 122;
+                    else if (currentImageNum === 122) newImageNum = 89;
+                } else if (toggleGroup === '92-114-123') {
+                    if (currentImageNum === 92) newImageNum = 114;
+                    else if (currentImageNum === 114) newImageNum = 123;
+                    else if (currentImageNum === 123) newImageNum = 92;
+                } else if (toggleGroup === '93-115-124') {
+                    if (currentImageNum === 93) newImageNum = 115;
+                    else if (currentImageNum === 115) newImageNum = 124;
+                    else if (currentImageNum === 124) newImageNum = 93;
+                }
+                // Images 74-79 toggle with 128-133
+                else if (toggleGroup && toggleGroup.startsWith('74-128')) {
+                    newImageNum = currentImageNum === 74 ? 128 : 74;
+                } else if (toggleGroup && toggleGroup.startsWith('75-129')) {
+                    newImageNum = currentImageNum === 75 ? 129 : 75;
+                } else if (toggleGroup && toggleGroup.startsWith('76-130')) {
+                    newImageNum = currentImageNum === 76 ? 130 : 76;
+                } else if (toggleGroup && toggleGroup.startsWith('77-131')) {
+                    newImageNum = currentImageNum === 77 ? 131 : 77;
+                } else if (toggleGroup && toggleGroup.startsWith('78-132')) {
+                    newImageNum = currentImageNum === 78 ? 132 : 78;
+                } else if (toggleGroup && toggleGroup.startsWith('79-133')) {
+                    newImageNum = currentImageNum === 79 ? 133 : 79;
+                }
+                // Images 80-95 toggle with 102-117
+                else if (currentImageNum >= 80 && currentImageNum <= 95) {
+                    newImageNum = currentImageNum + 22; // 80->102, 81->103, etc.
+                } else if (currentImageNum >= 102 && currentImageNum <= 117) {
+                    newImageNum = currentImageNum - 22; // 102->80, 103->81, etc.
+                }
+                // Images 98-101 toggle with 118-121
+                else if (currentImageNum >= 98 && currentImageNum <= 101) {
+                    newImageNum = currentImageNum + 20; // 98->118, 99->119, 100->120, 101->121
+                } else if (currentImageNum >= 118 && currentImageNum <= 121) {
+                    newImageNum = currentImageNum - 20; // 118->98, 119->99, 120->100, 121->101
+                }
+                
+                if (newImageNum) {
+                    element.setAttribute('data-image', newImageNum);
+                    const img = element.querySelector('img');
+                    if (img) {
+                        img.src = `image${newImageNum}.png`;
+                        img.alt = `Image ${newImageNum}`;
+                    } else {
+                        // If no img element, update the fallback div
+                        const fallbackDiv = element.querySelector('div');
+                        if (fallbackDiv) {
+                            fallbackDiv.textContent = newImageNum;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Image generation functions
+        function getImageForNumber(imageNum) {
+            return `<img src="image${imageNum}.png" alt="Image ${imageNum}" class="w-full h-full object-cover rounded" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-white font-bold bg-gray-400\\'>${imageNum}</div>';">`;
+        }
+
+        function getBlankColumnImage(imageNum) {
+            return `<img src="image${imageNum}.png" alt="Image ${imageNum}" class="w-full h-full object-cover rounded" onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\\'w-full h-full flex items-center justify-center text-gray-700 font-bold bg-gray-300\\'>${imageNum}</div>';">`;
+        }
+
+        // Grid state
+        let gridData1 = [];
+        let visibleStartRow1 = 1;
+        const visibleRowCount = 6;
+        const totalRows = 20;
+        
+        // Initialize grid
+        function initializeGrid() {
+            const gridData = [];
+            for (let row = 1; row <= totalRows; row++) {
+                gridData.push({
+                    row: row,
+                    col: 0,
+                    image: null,
+                    id: `${row}-0`,
+                    isBlankColumn: true
+                });
+                
+                for (let col = 1; col <= 7; col++) {
+                    gridData.push({
+                        row: row,
+                        col: col,
+                        image: null,
+                        id: `${row}-${col}`,
+                        isBlankColumn: false
+                    });
+                }
+            }
+            return gridData;
+        }
+
+        const tetrominoes = {
+            I: [
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 0, col: 3 }],
+                [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 3, col: 0 }]
+            ],
+            O: [
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }]
+            ],
+            T: [
+                [{ row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }],
+                [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 1, col: 1 }],
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 1 }],
+                [{ row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 2, col: 1 }]
+            ],
+            L: [
+                [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 2, col: 0 }, { row: 2, col: 1 }],
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 0 }],
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }, { row: 2, col: 1 }],
+                [{ row: 0, col: 2 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }]
+            ],
+            J: [
+                [{ row: 0, col: 1 }, { row: 1, col: 1 }, { row: 2, col: 0 }, { row: 2, col: 1 }],
+                [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 1, col: 2 }],
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 0 }, { row: 2, col: 0 }],
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 2 }]
+            ],
+            S: [
+                [{ row: 0, col: 1 }, { row: 0, col: 2 }, { row: 1, col: 0 }, { row: 1, col: 1 }],
+                [{ row: 0, col: 0 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 2, col: 1 }]
+            ],
+            Z: [
+                [{ row: 0, col: 0 }, { row: 0, col: 1 }, { row: 1, col: 1 }, { row: 1, col: 2 }],
+                [{ row: 0, col: 1 }, { row: 1, col: 0 }, { row: 1, col: 1 }, { row: 2, col: 0 }]
+            ]
+        };
+
+        function placeTetrominoShape(gridData, imageNum, usedImages) {
+            const minRow = 6;
+            const maxRow = 16;
+            const minCol = 1;
+            const maxCol = 6;
+            
+            const shapeNames = Object.keys(tetrominoes);
+            const shapeName = shapeNames[Math.floor(Math.random() * shapeNames.length)];
+            const rotations = tetrominoes[shapeName];
+            const rotation = rotations[Math.floor(Math.random() * rotations.length)];
+            
+            let attempts = 0;
+            while (attempts < 100) {
+                const baseRow = Math.floor(Math.random() * (maxRow - minRow)) + minRow;
+                const baseCol = Math.floor(Math.random() * (maxCol - minCol)) + minCol;
+                
+                const positions = rotation.map(offset => ({
+                    row: baseRow + offset.row,
+                    col: baseCol + offset.col
+                }));
+                
+                const cells = positions.map(pos => 
+                    gridData.find(cell => 
+                        cell.row === pos.row && 
+                        cell.col === pos.col && 
+                        !cell.isBlankColumn &&
+                        pos.row >= 1 && pos.row <= 18 &&
+                        pos.col >= 1 && pos.col <= 7
+                    )
+                ).filter(cell => cell && cell.image === null);
+                
+                if (cells.length === 4) {
+                    cells.forEach(cell => {
+                        cell.image = imageNum;
+                    });
+                    
+                    usedImages.add(imageNum);
+                    return true;
+                }
+                attempts++;
+            }
+            return false;
+        }
+
+        function getRandomAvailableCells(gridData, minRow, maxRow, count) {
+            const availableCells = gridData.filter(cell => 
+                cell.row >= minRow && 
+                cell.row <= maxRow && 
+                !cell.isBlankColumn && 
+                cell.image === null
+            );
+            
+            const selectedCells = [];
+            const cellsCopy = [...availableCells];
+            
+            for (let i = 0; i < count && cellsCopy.length > 0; i++) {
+                const randomIndex = Math.floor(Math.random() * cellsCopy.length);
+                selectedCells.push(cellsCopy.splice(randomIndex, 1)[0]);
+            }
+            
+            return selectedCells;
+        }
+
+        function getCellsWithImage(gridData, imageNum, minRow, maxRow) {
+            return gridData.filter(cell => 
+                cell.row >= minRow && 
+                cell.row <= maxRow && 
+                !cell.isBlankColumn && 
+                cell.image === imageNum
+            );
+        }
+
+        function generateLayout(gridData) {
+            // Clear grid
+            gridData.forEach(cell => cell.image = null);
+            
+            const usedPolyominoImages = new Set();
+            
+            // Place 3 tetrominoes with images 1-6
+            for (let i = 0; i < 3; i++) {
+                const availableImages = [1, 2, 3, 4, 5, 6].filter(img => !usedPolyominoImages.has(img));
+                if (availableImages.length > 0) {
+                    const imageNum = availableImages[Math.floor(Math.random() * availableImages.length)];
+                    placeTetrominoShape(gridData, imageNum, usedPolyominoImages);
+                }
+            }
+            
+            // Image 13 placement
+            let cells13 = getRandomAvailableCells(gridData, 1, 1, 1);
+            cells13.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            cells13 = getRandomAvailableCells(gridData, 2, 5, 3);
+            cells13.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            cells13 = getRandomAvailableCells(gridData, 6, 10, 2);
+            cells13.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            cells13 = getRandomAvailableCells(gridData, 11, 15, 2);
+            cells13.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            cells13 = getRandomAvailableCells(gridData, 16, 18, 2);
+            cells13.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            // Fill Row 19 with Image 13 (all non-blank columns)
+            const row19Cells = gridData.filter(cell => cell.row === 19 && !cell.isBlankColumn);
+            row19Cells.forEach(cell => {
+                cell.image = 13;
+                cell.cycleType = 'image13';
+            });
+            
+            // Place Image 136 in Row 19 left column (blank column)
+            const row19BlankCell = gridData.find(cell => cell.row === 19 && cell.isBlankColumn);
+            if (row19BlankCell) {
+                row19BlankCell.image = 136;
+            }
+            
+            // Images 14-23: choose 2 random images
+            const availableImages1423 = [];
+            for (let i = 14; i <= 23; i++) availableImages1423.push(i);
+            
+            const selectedImages = [];
+            for (let i = 0; i < 2; i++) {
+                const randomIndex = Math.floor(Math.random() * availableImages1423.length);
+                selectedImages.push(availableImages1423.splice(randomIndex, 1)[0]);
+            }
+            
+            let cells1423 = getRandomAvailableCells(gridData, 6, 9, 1);
+            if (cells1423.length > 0) cells1423[0].image = selectedImages[0];
+            
+            cells1423 = getRandomAvailableCells(gridData, 10, 13, 1);
+            if (cells1423.length > 0) cells1423[0].image = selectedImages[1];
+            
+            // Image 24 placement (only if fewer polyominoes than target)
+            for (let row = 1; row <= 18; row++) {
+                let targetCount;
+                if (row === 1) targetCount = 1;
+                else if (row >= 2 && row <= 4) targetCount = 2;
+                else if (row >= 5 && row <= 9) targetCount = 3;
+                else if (row >= 10 && row <= 14) targetCount = 4;
+                else if (row >= 15 && row <= 18) targetCount = 5;
+                
+                const polyominoCount = gridData.filter(cell => 
+                    cell.row === row && 
+                    !cell.isBlankColumn && 
+                    cell.image !== null && 
+                    cell.image >= 1 && 
+                    cell.image <= 6
+                ).length;
+                
+                const needed = Math.max(0, targetCount - polyominoCount);
+                
+                const availableCells = gridData.filter(cell => 
+                    cell.row === row && 
+                    !cell.isBlankColumn && 
+                    cell.image === null
+                );
+                
+                const actualCount = Math.min(needed, availableCells.length);
+                
+                for (let i = 0; i < actualCount; i++) {
+                    const randomIndex = Math.floor(Math.random() * availableCells.length);
+                    const selectedCell = availableCells.splice(randomIndex, 1)[0];
+                    selectedCell.image = 24;
+                }
+            }
+            
+            // Image 25: replace 2 random image 24 from each range
+            let image24Cells = getCellsWithImage(gridData, 24, 1, 5);
+            for (let i = 0; i < 2 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 25;
+            }
+            
+            image24Cells = getCellsWithImage(gridData, 24, 6, 10);
+            for (let i = 0; i < 2 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 25;
+            }
+            
+            image24Cells = getCellsWithImage(gridData, 24, 11, 15);
+            for (let i = 0; i < 2 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 25;
+            }
+            
+            // Image 26: replace image 24 in ranges
+            image24Cells = getCellsWithImage(gridData, 24, 1, 5);
+            for (let i = 0; i < 2 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 26;
+            }
+            
+            image24Cells = getCellsWithImage(gridData, 24, 6, 11);
+            for (let i = 0; i < 3 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 26;
+            }
+            
+            image24Cells = getCellsWithImage(gridData, 24, 12, 16);
+            for (let i = 0; i < 2 && i < image24Cells.length; i++) {
+                const randomIndex = Math.floor(Math.random() * image24Cells.length);
+                const cell = image24Cells.splice(randomIndex, 1)[0];
+                cell.image = 26;
+            }
+            
+            // Images 27, 28, 29: place 2 copies of each in rows 4-15
+            [27, 28, 29].forEach(imageNum => {
+                const cells = getRandomAvailableCells(gridData, 4, 15, 2);
+                cells.forEach(cell => cell.image = imageNum);
+            });
+            
+            // Image 30: place one in rows 4-9 and one in rows 10-15
+            let cells30 = getRandomAvailableCells(gridData, 4, 9, 1);
+            if (cells30.length > 0) cells30[0].image = 30;
+            
+            cells30 = getRandomAvailableCells(gridData, 10, 15, 1);
+            if (cells30.length > 0) cells30[0].image = 30;
+            
+            // Image 31 and 32-41 in blank column (only rows 8, 10, 12, 14, 16, 18)
+            const evenRows = [8, 10, 12, 14, 16, 18];
+            const evenBlankCells = gridData.filter(cell => 
+                cell.isBlankColumn && 
+                evenRows.includes(cell.row)
+            );
+            
+            // Place 2 copies of image 31
+            for (let i = 0; i < 2 && evenBlankCells.length > 0; i++) {
+                const randomIndex = Math.floor(Math.random() * evenBlankCells.length);
+                const cell = evenBlankCells.splice(randomIndex, 1)[0];
+                cell.image = 31;
+            }
+            
+            // Place random images 32-41 in the remaining 4 even row cells
+            evenBlankCells.forEach(cell => {
+                cell.image = Math.floor(Math.random() * 10) + 32;
+            });
+            
+            // Add image 125 below any image 31 in even rows (in odd rows 7, 9, 11, 13, 15, 17)
+            const image31Cells = gridData.filter(cell => 
+                evenRows.includes(cell.row) && 
+                cell.isBlankColumn && 
+                cell.image === 31
+            );
+            
+            image31Cells.forEach(cell31 => {
+                // Find the cell in the odd row just below (row - 1)
+                const belowRow = cell31.row - 1;
+                const cellBelow = gridData.find(cell => 
+                    cell.row === belowRow && 
+                    cell.isBlankColumn
+                );
+                
+                if (cellBelow) {
+                    cellBelow.image = 125;
+                }
+            });
+        }
+
+        function renderGrid(gridData, gridElementId, visibleStartRow) {
+            const gridElement = document.getElementById(gridElementId);
+            const container = gridElement.parentElement;
+            
+            // Clear grid
+            gridElement.innerHTML = '';
+            
+            // Clear any previous header rows
+            const existingHeaders = container.querySelectorAll('.header-row-external');
+            existingHeaders.forEach(header => header.remove());
+            
+            const visibleEndRow = visibleStartRow + visibleRowCount - 1;
+
+            const visibleData = gridData.filter(cell => 
+                cell.row >= visibleStartRow && cell.row <= visibleEndRow
+            );
+            
+            // Filter out header rows completely - they don't participate in the grid
+            const normalData = visibleData.filter(cell => cell.row < 20);
+            const headerData = visibleData.filter(cell => cell.row === 20);
+            
+            // Count how many regular rows we have
+            const normalRowsVisible = normalData.length > 0 ? Math.max(...normalData.map(c => c.row)) - Math.min(...normalData.map(c => c.row)) + 1 : 0;
+            
+            // Add header rows BEFORE the grid if they're visible
+            if (headerData.length > 0) {
+                const uniqueHeaderRows = [...new Set(headerData.map(c => c.row))];
+                uniqueHeaderRows.sort((a, b) => b - a); // Sort descending (20, 19)
+                
+                // Calculate the wrapper container height
+                const wrapperElement = container.querySelector('.grid-wrapper');
+                const wrapperHeight = wrapperElement ? wrapperElement.offsetHeight : 0;
+                
+                uniqueHeaderRows.forEach(row => {
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'header-row-external bg-gray-200 border-2 border-gray-400 rounded-lg flex items-center justify-center text-sm font-bold text-gray-700 mb-0.5';
+                    headerDiv.style.width = '100%';
+                    
+                    // Calculate height to match grid cell height exactly
+                    // The grid wrapper height divided by visible rows equals one cell height
+                    if (normalRowsVisible > 0 && wrapperHeight > 0) {
+                        // Account for gaps between rows (0.5px gap)
+                        const totalGapHeight = (normalRowsVisible - 1) * 0.5; // 0.5px gap between rows
+                        const cellHeight = (wrapperHeight - totalGapHeight) / normalRowsVisible;
+                        // Subtract 54 pixels to make them shorter and push grid down
+                        headerDiv.style.height = `${cellHeight - 54}px`;
+                    } else {
+                        headerDiv.style.height = '60px';
+                    }
+                    
+                    const rowTexts = {
+                        20: 'Header Section'
+                    };
+                    headerDiv.textContent = rowTexts[row];
+                    container.insertBefore(headerDiv, gridElement);
+                });
+            }
+            
+            // Calculate proper grid dimensions to make cells square
+            // The grid wrapper has a fixed 60% height, we need to fit normalRowsVisible rows
+            const wrapperElement = container.querySelector('.grid-wrapper');
+            const wrapperHeight = wrapperElement ? wrapperElement.offsetHeight : 0;
+            
+            // Calculate square size: divide available height by number of visible rows
+            let squareSize = 0;
+            if (normalRowsVisible > 0 && wrapperHeight > 0) {
+                // Account for gaps between rows (0.05vh gap)
+                const gapSize = window.innerHeight * 0.0005; // 0.05vh in pixels
+                const totalGapHeight = (normalRowsVisible - 1) * gapSize;
+                squareSize = (wrapperHeight - totalGapHeight) / normalRowsVisible;
+                
+                gridElement.style.gridTemplateRows = `repeat(${normalRowsVisible}, ${squareSize}px)`;
+                gridElement.style.height = `${squareSize * normalRowsVisible + totalGapHeight}px`;
+            }
+            
+            const sortedGridData = [...normalData].sort((a, b) => {
+                if (a.row !== b.row) {
+                    return b.row - a.row;
+                }
+                return a.col - b.col;
+            });
+
+            sortedGridData.forEach(cellData => {
+                const cellDiv = document.createElement('div');
+                
+                if (cellData.isBlankColumn) {
+                    cellDiv.className = 'bg-gray-100 border border-gray-300 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all left-column-cell';
+                    cellDiv.style.height = '100%';
+                    
+                    if (cellData.image) {
+                        cellDiv.innerHTML = getBlankColumnImage(cellData.image);
+                    }
+                } else {
+                    // Regular grid cells (non-blank column) - transparent backgrounds
+                    cellDiv.className = 'bg-transparent border-2 border-gray-400 rounded-lg overflow-hidden flex items-center justify-center text-sm font-medium text-gray-600 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all grid-cell';
+                    cellDiv.style.height = '100%';
+                    
+                    // Add click handler for blank cells cycling through no image, 126, 127, 134, 135, back to empty
+                    cellDiv.addEventListener('click', function(e) {
+                        // Only handle blank cell cycling if this cell has no image OR has blank cycling images (126, 127, 134, 135)
+                        // AND is marked as blank cycle (not image13 cycle)
+                        // Do NOT handle 13, 45, 46 here - they have their own toggle logic below
+                        if ((!cellData.image || cellData.image === 126 || cellData.image === 127 || (cellData.image === 134 && cellData.cycleType === 'blank') || (cellData.image === 135 && cellData.cycleType === 'blank')) && cellData.cycleType !== 'image13') {
+                            if (!cellData.image) {
+                                cellData.image = 126;
+                                cellData.cycleType = 'blank';
+                            } else if (cellData.image === 126) {
+                                cellData.image = 127;
+                                cellData.cycleType = 'blank';
+                            } else if (cellData.image === 127) {
+                                cellData.image = 134;
+                                cellData.cycleType = 'blank';
+                            } else if (cellData.image === 134 && cellData.cycleType === 'blank') {
+                                cellData.image = 135;
+                                cellData.cycleType = 'blank';
+                            } else if (cellData.image === 135 && cellData.cycleType === 'blank') {
+                                cellData.image = null; // Back to empty
+                                cellData.cycleType = null;
+                            }
+                            
+                            // Update the cell display
+                            if (cellData.image) {
+                                cellDiv.innerHTML = getImageForNumber(cellData.image);
+                            } else {
+                                cellDiv.className = 'bg-transparent border-2 border-gray-200 rounded-lg overflow-hidden flex items-center justify-center text-sm font-medium text-gray-600 cursor-pointer hover:ring-2 hover:ring-blue-400 transition-all';
+                                cellDiv.innerHTML = '';
+                            }
+                            
+                            // Prevent this click from triggering other click handlers
+                            e.stopPropagation();
+                            return;
+                        }
+                    });
+                }
+                
+                if (!cellData.isBlankColumn && cellData.image && cellData.image !== 126 && cellData.image !== 127 && cellData.image !== 134 && cellData.image !== 135) {
+                    // Process all cells with images except blank cycling images (126, 127, 134, 135)
+                    
+                    if (cellData.image) {
+                        cellDiv.innerHTML = getImageForNumber(cellData.image);
+                        
+                        // Polyomino images (1-6) - keep white background, add toggle
+                        if (cellData.image >= 1 && cellData.image <= 6) {
+                            // Toggle between 1-6 and 7-12
+                            cellDiv.addEventListener('click', function() {
+                                if (cellData.image >= 1 && cellData.image <= 6) {
+                                    cellData.image = cellData.image + 6; // 1->7, 2->8, etc.
+                                } else if (cellData.image >= 7 && cellData.image <= 12) {
+                                    cellData.image = cellData.image - 6; // 7->1, 8->2, etc.
+                                }
+                                
+                                cellDiv.innerHTML = getImageForNumber(cellData.image);
+                            });
+                        } else {
+                            // Add toggle functionality for other images
+                            cellDiv.addEventListener('click', function(e) {
+                                let toggledImage = cellData.image;
+                                
+                                // Images 24, 25, 26 toggle with 42, 43, 44
+                                if (cellData.image === 24) toggledImage = 42;
+                                else if (cellData.image === 42) toggledImage = 24;
+                                else if (cellData.image === 25) toggledImage = 43;
+                                else if (cellData.image === 43) toggledImage = 25;
+                                else if (cellData.image === 26) toggledImage = 44;
+                                else if (cellData.image === 44) toggledImage = 26;
+                                
+                                // Image 13 cycles through 5 images (13->45->46->134->135->13)
+                                else if (cellData.image === 13) {
+                                    toggledImage = 45;
+                                    cellData.cycleType = 'image13';
+                                    cellData.startImage = 13;
+                                }
+                                else if (cellData.image === 45) {
+                                    toggledImage = 46;
+                                    cellData.cycleType = 'image13';
+                                }
+                                else if (cellData.image === 46) {
+                                    toggledImage = 134;
+                                    cellData.cycleType = 'image13';
+                                }
+                                else if (cellData.image === 134 && cellData.cycleType === 'image13') {
+                                    toggledImage = 135;
+                                    cellData.cycleType = 'image13';
+                                }
+                                else if (cellData.image === 135 && cellData.cycleType === 'image13') {
+                                    toggledImage = cellData.startImage || 13;
+                                    cellData.cycleType = 'image13';
+                                }
+                                
+                                // Images 14-23: cycle through their images -> 134 -> 135 -> back to start
+                                else if (cellData.image === 14) {
+                                    toggledImage = 47;
+                                    cellData.startImage = 14;
+                                }
+                                else if (cellData.image === 47) toggledImage = 48;
+                                else if (cellData.image === 48) toggledImage = 134;
+                                
+                                else if (cellData.image === 15) {
+                                    toggledImage = 49;
+                                    cellData.startImage = 15;
+                                }
+                                else if (cellData.image === 49) toggledImage = 50;
+                                else if (cellData.image === 50) toggledImage = 134;
+                                
+                                else if (cellData.image === 16) {
+                                    toggledImage = 51;
+                                    cellData.startImage = 16;
+                                }
+                                else if (cellData.image === 51) toggledImage = 52;
+                                else if (cellData.image === 52) toggledImage = 134;
+                                
+                                else if (cellData.image === 17) {
+                                    toggledImage = 53;
+                                    cellData.startImage = 17;
+                                }
+                                else if (cellData.image === 53) toggledImage = 54;
+                                else if (cellData.image === 54) toggledImage = 134;
+                                
+                                else if (cellData.image === 18) {
+                                    toggledImage = 55;
+                                    cellData.startImage = 18;
+                                }
+                                else if (cellData.image === 55) toggledImage = 56;
+                                else if (cellData.image === 56) toggledImage = 134;
+                                
+                                else if (cellData.image === 19) {
+                                    toggledImage = 57;
+                                    cellData.startImage = 19;
+                                }
+                                else if (cellData.image === 57) toggledImage = 58;
+                                else if (cellData.image === 58) toggledImage = 134;
+                                
+                                else if (cellData.image === 20) {
+                                    toggledImage = 59;
+                                    cellData.startImage = 20;
+                                }
+                                else if (cellData.image === 59) toggledImage = 60;
+                                else if (cellData.image === 60) toggledImage = 134;
+                                
+                                else if (cellData.image === 21) {
+                                    toggledImage = 61;
+                                    cellData.startImage = 21;
+                                }
+                                else if (cellData.image === 61) toggledImage = 62;
+                                else if (cellData.image === 62) toggledImage = 134;
+                                
+                                else if (cellData.image === 22) {
+                                    toggledImage = 63;
+                                    cellData.startImage = 22;
+                                }
+                                else if (cellData.image === 63) toggledImage = 64;
+                                else if (cellData.image === 64) toggledImage = 134;
+                                
+                                else if (cellData.image === 23) {
+                                    toggledImage = 65;
+                                    cellData.startImage = 23;
+                                }
+                                else if (cellData.image === 65) toggledImage = 66;
+                                else if (cellData.image === 66) toggledImage = 134;
+                                
+                                // Images 27-29 cycle through 5 images -> 134 -> 135 -> back to start
+                                else if (cellData.image === 27) {
+                                    toggledImage = 67;
+                                    cellData.startImage = 27;
+                                }
+                                else if (cellData.image === 67) toggledImage = 68;
+                                else if (cellData.image === 68) toggledImage = 134;
+                                
+                                else if (cellData.image === 28) {
+                                    toggledImage = 69;
+                                    cellData.startImage = 28;
+                                }
+                                else if (cellData.image === 69) toggledImage = 70;
+                                else if (cellData.image === 70) toggledImage = 134;
+                                
+                                else if (cellData.image === 29) {
+                                    toggledImage = 71;
+                                    cellData.startImage = 29;
+                                }
+                                else if (cellData.image === 71) toggledImage = 72;
+                                else if (cellData.image === 72) toggledImage = 134;
+                                
+                                // Image 30 toggles with 73
+                                else if (cellData.image === 30) toggledImage = 73;
+                                else if (cellData.image === 73) toggledImage = 30;
+                                
+                                // Handle 134->135 and 135 cycling back to original images
+                                else if (cellData.image === 134) {
+                                    toggledImage = 135;
+                                }
+                                else if (cellData.image === 135) {
+                                    // Go back to the starting image stored in cellData
+                                    toggledImage = cellData.startImage || 14;
+                                }
+                                
+                                cellData.image = toggledImage;
+                                cellDiv.innerHTML = getImageForNumber(toggledImage);
+                                e.stopPropagation();
+                            });
+                        }
+                    }
+                } else if (!cellData.isBlankColumn && cellData.image && (cellData.image === 126 || cellData.image === 127 || cellData.image === 134 || cellData.image === 135)) {
+                    // Display cells with blank cycling images (126, 127, 134, 135)
+                    cellDiv.innerHTML = getImageForNumber(cellData.image);
+                }
+                
+                gridElement.appendChild(cellDiv);
+            });
+        }
+
+        function scrollDownGrid() {
+            if (visibleStartRow1 + visibleRowCount <= totalRows) {
+                const gridElement = document.getElementById('grid1');
+                
+                // Calculate one row height as percentage of total grid
+                const rowHeight = 100 / visibleRowCount;
+                
+                // Animate downward
+                gridElement.style.transform = `translateY(${rowHeight}%)`;
+                
+                setTimeout(() => {
+                    // Update data
+                    visibleStartRow1++;
+                    renderGrid(gridData1, 'grid1', visibleStartRow1);
+                    
+                    // Reset position instantly (no transition)
+                    gridElement.style.transition = 'none';
+                    gridElement.style.transform = 'translateY(0)';
+                    
+                    // Re-enable transition after a brief moment
+                    setTimeout(() => {
+                        gridElement.style.transition = 'transform 0.4s ease-out';
+                    }, 50);
+                }, 400);
+            }
+        }
+        
+        function scrollUpGrid() {
+            if (visibleStartRow1 > 1) {
+                const gridElement = document.getElementById('grid1');
+                
+                // Calculate one row height as percentage of total grid
+                const rowHeight = 100 / visibleRowCount;
+                
+                // Animate upward
+                gridElement.style.transform = `translateY(-${rowHeight}%)`;
+                
+                setTimeout(() => {
+                    // Update data
+                    visibleStartRow1--;
+                    renderGrid(gridData1, 'grid1', visibleStartRow1);
+                    
+                    // Reset position instantly (no transition)
+                    gridElement.style.transition = 'none';
+                    gridElement.style.transform = 'translateY(0)';
+                    
+                    // Re-enable transition after a brief moment
+                    setTimeout(() => {
+                        gridElement.style.transition = 'transform 0.4s ease-out';
+                    }, 50);
+                }, 400);
+            }
+        }
+        
+        function renderStaticGrid() {
+            const staticGridElement = document.getElementById('staticGrid');
+            staticGridElement.innerHTML = '';
+            
+            // Get the fixed height from the parent (30% of grid container)
+            const gridHeight = staticGridElement.offsetHeight;
+            const gridWidth = staticGridElement.offsetWidth;
+            
+            // Calculate the square size based on available space
+            // We have 3 rows, so each cell should be 1/3 of the height
+            const squareSize = gridHeight / 3;
+            
+            staticGridElement.style.gridTemplateRows = `repeat(3, ${squareSize}px)`;
+            
+            // Define the specific image layout for each row (left to right)
+            const gridLayout = {
+                3: [null, 1, 1, 1, 2, 3, 3, 3],  // Top row (row 3)
+                2: [null, 4, 4, 4, 2, 4, 4, 4],  // Middle row (row 2)
+                1: [null, 6, 6, 6, 2, 5, 5, 5]   // Bottom row (row 1)
+            };
+            
+            // Store current image state for each cell
+            const staticGridData = {};
+            
+            for (let row = 3; row >= 1; row--) {
+                for (let col = 0; col <= 7; col++) {
+                    const cellDiv = document.createElement('div');
+                    const imageNum = gridLayout[row][col];
+                    const cellId = `static-${row}-${col}`;
+                    
+                    if (col === 0) {
+                        // Left column - solid dark line spanning full height
+                        if (row === 3) {
+                            cellDiv.className = 'rounded-tl-lg overflow-hidden flex items-center justify-center';
+                            cellDiv.style.gridRow = '1 / 4';
+                            cellDiv.style.gridColumn = '1';
+                            cellDiv.style.background = 'linear-gradient(135deg, #1a0a0a 0%, #2d1515 25%, #1a0a0a 50%, #2d1515 75%, #1a0a0a 100%)';
+                        } else {
+                            continue; // Skip other rows for column 0 since it's merged
+                        }
+                    } else {
+                        staticGridData[cellId] = imageNum;
+                        
+                        // All cells get white background and are perfect squares
+                        cellDiv.className = 'bg-white border-2 border-gray-200 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-purple-400 transition-all';
+                        
+                        cellDiv.innerHTML = getImageForNumber(imageNum);
+                        
+                        // Add click event for toggling
+                        cellDiv.addEventListener('click', function() {
+                            let currentImage = staticGridData[cellId];
+                            let toggledImage = currentImage;
+                            
+                            // Toggle between 1-6 and 7-12 for polyominoes
+                            if (currentImage >= 1 && currentImage <= 6) {
+                                toggledImage = currentImage + 6;
+                            } else if (currentImage >= 7 && currentImage <= 12) {
+                                toggledImage = currentImage - 6;
+                            }
+                            
+                            staticGridData[cellId] = toggledImage;
+                            cellDiv.innerHTML = getImageForNumber(toggledImage);
+                        });
+                    }
+                    
+                    staticGridElement.appendChild(cellDiv);
+                }
+            }
+        }
+
+        function initializeApp() {
+            renderStaticGrid();
+            
+            gridData1 = initializeGrid();
+            generateLayout(gridData1);
+            
+            visibleStartRow1 = 1;
+            
+            renderGrid(gridData1, 'grid1', visibleStartRow1);
+            
+            // Setup toggle for all clickable images with data-image attribute
+            document.querySelectorAll('[data-image]').forEach(element => {
+                setupImageToggle(element);
+            });
+        }
+
+        function resetDice() {
+            const dice1 = document.getElementById('dice1');
+            const dice2 = document.getElementById('dice2');
+            const dice3 = document.getElementById('dice3');
+            
+            // Reset dice positions
+            dice1.style.transform = 'translate(0px, 0px)';
+            dice2.style.transform = 'translate(0px, 0px)';
+            dice3.style.transform = 'translate(0px, 0px)';
+            
+            // Reset values to 1
+            dice1.textContent = '1';
+            dice2.textContent = '1';
+            dice3.textContent = '1';
+            
+            // Reset ALL offset values for dragging
+            if (dice1.dragData) {
+                dice1.dragData.xOffset = 0;
+                dice1.dragData.yOffset = 0;
+            }
+            if (dice1.dragState) {
+                dice1.dragState.xOffset = 0;
+                dice1.dragState.yOffset = 0;
+            }
+            if (dice2.dragData) {
+                dice2.dragData.xOffset = 0;
+                dice2.dragData.yOffset = 0;
+            }
+            if (dice2.dragState) {
+                dice2.dragState.xOffset = 0;
+                dice2.dragState.yOffset = 0;
+            }
+            if (dice3.dragData) {
+                dice3.dragData.xOffset = 0;
+                dice3.dragData.yOffset = 0;
+            }
+            if (dice3.dragState) {
+                dice3.dragState.xOffset = 0;
+                dice3.dragState.yOffset = 0;
+            }
+        }
+
+        function rollDice() {
+            const dice1 = document.getElementById('dice1');
+            const dice2 = document.getElementById('dice2');
+            const dice3 = document.getElementById('dice3');
+            const button = document.getElementById('rollDiceBtn');
+            
+            // Reset dice positions
+            dice1.style.transform = 'translate(0px, 0px)';
+            dice2.style.transform = 'translate(0px, 0px)';
+            dice3.style.transform = 'translate(0px, 0px)';
+            
+            // Reset ALL offset values for dragging
+            if (dice1.dragData) {
+                dice1.dragData.xOffset = 0;
+                dice1.dragData.yOffset = 0;
+            }
+            if (dice1.dragState) {
+                dice1.dragState.xOffset = 0;
+                dice1.dragState.yOffset = 0;
+            }
+            if (dice2.dragData) {
+                dice2.dragData.xOffset = 0;
+                dice2.dragData.yOffset = 0;
+            }
+            if (dice2.dragState) {
+                dice2.dragState.xOffset = 0;
+                dice2.dragState.yOffset = 0;
+            }
+            if (dice3.dragData) {
+                dice3.dragData.xOffset = 0;
+                dice3.dragData.yOffset = 0;
+            }
+            if (dice3.dragState) {
+                dice3.dragState.xOffset = 0;
+                dice3.dragState.yOffset = 0;
+            }
+            
+            // Disable button during roll
+            button.disabled = true;
+            button.textContent = '   Rolling...';
+            
+            // Animation: rapid number changes
+            let rollCount = 0;
+            const rollInterval = setInterval(() => {
+                dice1.textContent = Math.floor(Math.random() * 6) + 1;
+                dice2.textContent = Math.floor(Math.random() * 6) + 1;
+                dice3.textContent = Math.floor(Math.random() * 6) + 1;
+                rollCount++;
+                
+                if (rollCount >= 15) {
+                    clearInterval(rollInterval);
+                    
+                    // Final values
+                    const finalRoll1 = Math.floor(Math.random() * 6) + 1;
+                    const finalRoll2 = Math.floor(Math.random() * 6) + 1;
+                    const finalRoll3 = Math.floor(Math.random() * 6) + 1;
+                    
+                    dice1.textContent = finalRoll1;
+                    dice2.textContent = finalRoll2;
+                    dice3.textContent = finalRoll3;
+                    
+                    // Add bounce animation
+                    dice1.style.transform = 'translate(0px, 0px) scale(1.2)';
+                    dice2.style.transform = 'translate(0px, 0px) scale(1.2)';
+                    dice3.style.transform = 'translate(0px, 0px) scale(1.2)';
+                    
+                    setTimeout(() => {
+                        dice1.style.transform = 'translate(0px, 0px) scale(1)';
+                        dice2.style.transform = 'translate(0px, 0px) scale(1)';
+                        dice3.style.transform = 'translate(0px, 0px) scale(1)';
+                    }, 200);
+                    
+                    // Re-enable button
+                    button.disabled = false;
+                    button.textContent = '🎲 Roll';
+                }
+            }, 50);
+        }
+
+        function makeDiceClickable(diceElement) {
+            // Left click to increment
+            diceElement.addEventListener('click', function(e) {
+                // Only increment if not being dragged
+                if (!diceElement.wasDragged) {
+                    let currentValue = parseInt(diceElement.textContent);
+                    currentValue = currentValue >= 6 ? 1 : currentValue + 1;
+                    diceElement.textContent = currentValue;
+                    
+                    // Add bounce animation
+                    diceElement.style.transform = `translate(${diceElement.dragState ? diceElement.dragState.xOffset : 0}px, ${diceElement.dragState ? diceElement.dragState.yOffset : 0}px) scale(1.2)`;
+                    setTimeout(() => {
+                        diceElement.style.transform = `translate(${diceElement.dragState ? diceElement.dragState.xOffset : 0}px, ${diceElement.dragState ? diceElement.dragState.yOffset : 0}px) scale(1)`;
+                    }, 150);
+                }
+                diceElement.wasDragged = false;
+            });
+            
+            // Right click to reroll this dice
+            diceElement.addEventListener('contextmenu', function(e) {
+                e.preventDefault(); // Prevent context menu from appearing
+                
+                // Only reroll if not being dragged
+                if (!diceElement.wasDragged) {
+                    // Quick animation: rapid number changes
+                    let rollCount = 0;
+                    const rollInterval = setInterval(() => {
+                        diceElement.textContent = Math.floor(Math.random() * 6) + 1;
+                        rollCount++;
+                        
+                        if (rollCount >= 10) {
+                            clearInterval(rollInterval);
+                            
+                            // Final value
+                            const finalRoll = Math.floor(Math.random() * 6) + 1;
+                            diceElement.textContent = finalRoll;
+                            
+                            // Add bounce animation
+                            diceElement.style.transform = `translate(${diceElement.dragState ? diceElement.dragState.xOffset : 0}px, ${diceElement.dragState ? diceElement.dragState.yOffset : 0}px) scale(1.2)`;
+                            setTimeout(() => {
+                                diceElement.style.transform = `translate(${diceElement.dragState ? diceElement.dragState.xOffset : 0}px, ${diceElement.dragState ? diceElement.dragState.yOffset : 0}px) scale(1)`;
+                            }, 150);
+                        }
+                    }, 50);
+                }
+                diceElement.wasDragged = false;
+            });
+        }
+
+        function makeDraggable(element, constrainToMiddleSection = false) {
+            // Store drag state directly on element for reliable access
+            element.dragState = {
+                isDragging: false,
+                startX: 0,
+                startY: 0,
+                xOffset: 0,
+                yOffset: 0
+            };
+            
+            // Also keep dragData for compatibility
+            element.dragData = element.dragState;
+            element.wasDragged = false;
+
+            element.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+
+            element.addEventListener('touchstart', dragStart);
+            document.addEventListener('touchmove', drag);
+            document.addEventListener('touchend', dragEnd);
+
+            function dragStart(e) {
+                if (e.target === element) {
+                    element.dragState.isDragging = true;
+                    element.wasDragged = false;
+                    document.body.classList.add('dragging');
+                    
+                    if (e.type === 'touchstart') {
+                        element.dragState.startX = e.touches[0].clientX;
+                        element.dragState.startY = e.touches[0].clientY;
+                    } else {
+                        element.dragState.startX = e.clientX;
+                        element.dragState.startY = e.clientY;
+                    }
+                }
+            }
+
+            function drag(e) {
+                if (element.dragState.isDragging) {
+                    e.preventDefault();
+                    element.wasDragged = true;
+                    
+                    let currentX, currentY;
+                    
+                    if (e.type === 'touchmove') {
+                        currentX = e.touches[0].clientX;
+                        currentY = e.touches[0].clientY;
+                    } else {
+                        currentX = e.clientX;
+                        currentY = e.clientY;
+                    }
+
+                    // Calculate the delta from start position
+                    const deltaX = currentX - element.dragState.startX;
+                    const deltaY = currentY - element.dragState.startY;
+                    
+                    // Apply the delta to the previous offset
+                    let newX = element.dragState.xOffset + deltaX;
+                    let newY = element.dragState.yOffset + deltaY;
+
+                    // Constrain to middle section if needed
+                    if (constrainToMiddleSection) {
+                        const gridContainer = document.querySelector('.grid-container');
+                        if (gridContainer) {
+                            const containerRect = gridContainer.getBoundingClientRect();
+                            const elementRect = element.getBoundingClientRect();
+                            
+                            // Calculate boundaries
+                            const minX = containerRect.left - elementRect.left;
+                            const maxX = containerRect.right - elementRect.right;
+                            const minY = containerRect.top - elementRect.top;
+                            const maxY = containerRect.bottom - elementRect.bottom;
+                            
+                            // Constrain newX and newY
+                            newX = Math.max(minX, Math.min(maxX, newX));
+                            newY = Math.max(minY, Math.min(maxY, newY));
+                        }
+                    }
+
+                    setTranslate(newX, newY, element);
+                }
+            }
+
+            function dragEnd(e) {
+                if (element.dragState.isDragging) {
+                    // Update the offset to the final position
+                    let currentX, currentY;
+                    
+                    if (e.type === 'touchend' && e.changedTouches) {
+                        currentX = e.changedTouches[0].clientX;
+                        currentY = e.changedTouches[0].clientY;
+                    } else {
+                        currentX = e.clientX;
+                        currentY = e.clientY;
+                    }
+                    
+                    const deltaX = currentX - element.dragState.startX;
+                    const deltaY = currentY - element.dragState.startY;
+                    
+                    let newXOffset = element.dragState.xOffset + deltaX;
+                    let newYOffset = element.dragState.yOffset + deltaY;
+                    
+                    // Constrain to middle section if needed
+                    if (constrainToMiddleSection) {
+                        const gridContainer = document.querySelector('.grid-container');
+                        if (gridContainer) {
+                            const containerRect = gridContainer.getBoundingClientRect();
+                            const elementRect = element.getBoundingClientRect();
+                            
+                            // Calculate boundaries
+                            const minX = containerRect.left - elementRect.left + element.dragState.xOffset;
+                            const maxX = containerRect.right - elementRect.right + element.dragState.xOffset;
+                            const minY = containerRect.top - elementRect.top + element.dragState.yOffset;
+                            const maxY = containerRect.bottom - elementRect.bottom + element.dragState.yOffset;
+                            
+                            // Constrain offsets
+                            newXOffset = Math.max(minX, Math.min(maxX, newXOffset));
+                            newYOffset = Math.max(minY, Math.min(maxY, newYOffset));
+                        }
+                    }
+                    
+                    element.dragState.xOffset = newXOffset;
+                    element.dragState.yOffset = newYOffset;
+                    
+                    element.dragState.isDragging = false;
+                    document.body.classList.remove('dragging');
+                }
+            }
+
+            function setTranslate(xPos, yPos, el) {
+                el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            
+            // Add transition for dice
+            const dice1 = document.getElementById('dice1');
+            const dice2 = document.getElementById('dice2');
+            const dice3 = document.getElementById('dice3');
+            dice1.style.transition = 'transform 0.2s ease';
+            dice2.style.transition = 'transform 0.2s ease';
+            dice3.style.transition = 'transform 0.2s ease';
+            
+            // Make dice draggable and clickable
+            makeDraggable(dice1);
+            makeDraggable(dice2);
+            makeDraggable(dice3);
+            
+            makeDiceClickable(dice1);
+            makeDiceClickable(dice2);
+            makeDiceClickable(dice3);
+            
+            document.getElementById('regenerateBtn').addEventListener('click', function() {
+                gridData1 = initializeGrid();
+                generateLayout(gridData1);
+                visibleStartRow1 = 1;
+                renderGrid(gridData1, 'grid1', visibleStartRow1);
+            });
+            
+            document.getElementById('scrollDownBtn').addEventListener('click', function() {
+                scrollDownGrid();
+            });
+            
+            document.getElementById('scrollUpBtn').addEventListener('click', function() {
+                scrollUpGrid();
+            });
+            
+            document.getElementById('rollDiceBtn').addEventListener('click', function() {
+                rollDice();
+            });
+            
+            document.getElementById('resetDiceBtn').addEventListener('click', function() {
+                resetDice();
+            });
+            
+            // Quick Guide Popup close functionality
+            document.getElementById('closeGuideBtn').addEventListener('click', function() {
+                document.getElementById('quickGuidePopup').style.display = 'none';
+            });
+        });
+    </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9aa87f5e7799bae6',t:'MTc2NTE1NzQyNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
